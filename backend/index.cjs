@@ -29,6 +29,18 @@ app.get('/api/inventory', (req, res) => {
   res.json(inventory);
 });
 
+// Update product endpoint
+app.put('/api/inventory/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const updated = req.body;
+  const index = inventory.findIndex(item => item.id === id);
+  if (index === -1) {
+    return res.status(404).json({ error: 'Product not found' });
+  }
+  inventory[index] = { ...inventory[index], ...updated };
+  res.json(inventory[index]);
+});
+
 app.listen(PORT, () => {
   console.log(`Backend server running on http://localhost:${PORT}`);
 }); 
