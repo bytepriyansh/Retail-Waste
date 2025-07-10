@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,10 +14,38 @@ import {
   Settings
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, BarChart, Bar } from "recharts";
+import { generateAIResponse } from "@/lib/gemini";
 
 const SmartPricing = () => {
-  const [autoDiscount, setAutoDiscount] = useState(true);
+  const [autoDiscount, setAutoDiscount] = useState(false);
   const [globalDiscountRate, setGlobalDiscountRate] = useState([25]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [aiLoading, setAiLoading] = useState<{ [id: number]: boolean }>({});
+  const [aiResults, setAiResults] = useState<{ [id: number]: { discount: number, sellThrough: number } }>({});
+  const [manualDiscounts, setManualDiscounts] = useState<{ [id: number]: number }>({});
+
+  useEffect(() => {
+    fetch("http://localhost:5000/api/inventory")
+      .then(res => res.json())
+      .then(data => {
+        // Map inventory items to SmartPricing product format
+        const mapped = data.map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          originalPrice: item.price,
+          currentDiscount: item.suggestedDiscount ?? 0,
+          predictedSellThrough: Math.floor(Math.random() * 41) + 60, // mock 60-100%
+          urgency: item.urgency,
+          hoursLeft: item.daysUntilExpiry * 24, // rough conversion
+          category: item.category,
+        }));
+        setProducts(mapped);
+        // Initialize manualDiscounts for each product
+        const initialDiscounts: { [id: number]: number } = {};
+        mapped.forEach((p: any) => { initialDiscounts[p.id] = p.currentDiscount; });
+        setManualDiscounts(initialDiscounts);
+      });
+  }, []);
 
   const pricingData = [
     { hour: '6AM', sales: 20, discount: 0 },
@@ -26,49 +54,6 @@ const SmartPricing = () => {
     { hour: '3PM', sales: 120, discount: 15 },
     { hour: '6PM', sales: 200, discount: 30 },
     { hour: '9PM', sales: 150, discount: 50 },
-  ];
-
-  const products = [
-    {
-      id: 1,
-      name: "Organic Milk 1L",
-      originalPrice: 4.99,
-      currentDiscount: 30,
-      predictedSellThrough: 85,
-      urgency: "high",
-      hoursLeft: 8,
-      category: "Dairy"
-    },
-    {
-      id: 2,
-      name: "Fresh Bread Loaves",
-      originalPrice: 2.99,
-      currentDiscount: 50,
-      predictedSellThrough: 95,
-      urgency: "critical",
-      hoursLeft: 4,
-      category: "Bakery"
-    },
-    {
-      id: 3,
-      name: "Strawberries 1lb",
-      originalPrice: 4.99,
-      currentDiscount: 25,
-      predictedSellThrough: 70,
-      urgency: "medium",
-      hoursLeft: 12,
-      category: "Produce"
-    },
-    {
-      id: 4,
-      name: "Greek Yogurt",
-      originalPrice: 5.49,
-      currentDiscount: 0,
-      predictedSellThrough: 40,
-      urgency: "low",
-      hoursLeft: 48,
-      category: "Dairy"
-    }
   ];
 
   const getUrgencyColor = (urgency: string) => {
@@ -83,6 +68,27 @@ const SmartPricing = () => {
 
   const calculateDiscountedPrice = (originalPrice: number, discount: number) => {
     return (originalPrice * (1 - discount / 100)).toFixed(2);
+  };
+
+  const handleApplyAIDiscount = async (product: any) => {
+    setAiLoading(prev => ({ ...prev, [product.id]: true }));
+    const prompt = `Suggest an optimal discount percentage and predicted sell-through rate for the following product:\n
+Name: ${product.name}\nCategory: ${product.category}\nQuantity: ${product.quantity ?? 1}\nUrgency: ${product.urgency}\nHours Left: ${product.hoursLeft}\nCurrent Price: $${product.originalPrice}\nCurrent Discount: ${product.currentDiscount}%`;
+    try {
+      const response = await generateAIResponse(prompt);
+      console.log('AI Response for', product.name, ':', response); // <-- Added logging
+      // Simple extraction: look for numbers in the response
+      const discountMatch = response.match(/(\d+)% discount|discount: (\d+)%/i);
+      const sellThroughMatch = response.match(/(\d+)% sell[- ]?through|sell[- ]?through: (\d+)%/i);
+      const discount = discountMatch ? parseInt(discountMatch[1] || discountMatch[2]) : product.currentDiscount;
+      const sellThrough = sellThroughMatch ? parseInt(sellThroughMatch[1] || sellThroughMatch[2]) : product.predictedSellThrough;
+      setAiResults(prev => ({ ...prev, [product.id]: { discount, sellThrough } }));
+      setProducts(prev => prev.map(p => p.id === product.id ? { ...p, currentDiscount: discount, predictedSellThrough: sellThrough } : p));
+    } catch (e) {
+      // fallback: do nothing
+    } finally {
+      setAiLoading(prev => ({ ...prev, [product.id]: false }));
+    }
   };
 
   return (
@@ -249,95 +255,119 @@ const SmartPricing = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
-              {products.map((product) => (
-                <div key={product.id} className="border rounded-lg p-6 hover:shadow-md transition-all">
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <h3 className="font-semibold text-lg">{product.name}</h3>
-                      <p className="text-sm text-muted-foreground">{product.category}</p>
-                    </div>
-                    <Badge className={`${getUrgencyColor(product.urgency)} border`}>
-                      {product.urgency} • {product.hoursLeft}h left
-                    </Badge>
-                  </div>
+              {products.map((product) => {
+                const manualDiscount = manualDiscounts[product.id] ?? product.currentDiscount;
+                // Always use the original price for discount calculation
+                const discountedPrice = calculateDiscountedPrice(product.originalPrice, manualDiscount);
 
-                  <div className="grid md:grid-cols-4 gap-6">
-                    {/* Pricing */}
-                    <div>
-                      <div className="text-sm text-muted-foreground mb-1">Current Price</div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-2xl font-bold text-emerald-600">
-                          ${calculateDiscountedPrice(product.originalPrice, product.currentDiscount)}
-                        </span>
-                        {product.currentDiscount > 0 && (
-                          <span className="text-sm text-muted-foreground line-through">
-                            ${product.originalPrice}
+                const handleSliderChange = (val: number) => {
+                  setManualDiscounts(prev => ({ ...prev, [product.id]: val }));
+                };
+
+                const handleApplyDiscount = async () => {
+                  // Always use the original price for discount calculation
+                  const newPrice = Number(calculateDiscountedPrice(product.originalPrice, manualDiscount));
+                  try {
+                    const res = await fetch(`http://localhost:5000/api/inventory/${product.id}`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ price: newPrice, suggestedDiscount: manualDiscount }),
+                    });
+                    if (!res.ok) throw new Error('Failed to update inventory');
+                    const updated = await res.json();
+                    setProducts(prev => prev.map(p => p.id === product.id ? { ...p, currentDiscount: manualDiscount, originalPrice: product.originalPrice } : p));
+                  } catch (e) {
+                    // Optionally show error to user
+                    console.error(e);
+                  }
+                };
+
+                return (
+                  <div key={product.id} className="border rounded-lg p-6 hover:shadow-md transition-all">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h3 className="font-semibold text-lg">{product.name}</h3>
+                        <p className="text-sm text-muted-foreground">{product.category}</p>
+                      </div>
+                      <Badge className={`${getUrgencyColor(product.urgency)} border`}>
+                        {product.urgency} • {product.hoursLeft}h left
+                      </Badge>
+                    </div>
+                    <div className="grid md:grid-cols-4 gap-6">
+                      {/* Pricing */}
+                      <div>
+                        <div className="text-sm text-muted-foreground mb-1">Current Price</div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl font-bold text-emerald-600">
+                            ${product.currentDiscount > 0 ? calculateDiscountedPrice(product.originalPrice, product.currentDiscount) : product.originalPrice}
                           </span>
+                          {product.currentDiscount > 0 && (
+                            <span className="text-sm text-muted-foreground line-through">
+                              ${product.originalPrice}
+                            </span>
+                          )}
+                        </div>
+                        {product.currentDiscount > 0 && (
+                          <Badge className="bg-blue-100 text-blue-800 mt-1">
+                            -{product.currentDiscount}% OFF
+                          </Badge>
                         )}
                       </div>
-                      {product.currentDiscount > 0 && (
-                        <Badge className="bg-blue-100 text-blue-800 mt-1">
-                          -{product.currentDiscount}% OFF
-                        </Badge>
-                      )}
-                    </div>
-
-                    {/* Sell-Through Prediction */}
-                    <div>
-                      <div className="text-sm text-muted-foreground mb-1">Predicted Sell-Through</div>
-                      <div className="text-2xl font-bold">{product.predictedSellThrough}%</div>
-                      <Progress value={product.predictedSellThrough} className="h-2 mt-2" />
-                    </div>
-
-                    {/* Discount Slider */}
-                    <div>
-                      <div className="text-sm text-muted-foreground mb-2">Manual Discount</div>
-                      <Slider
-                        defaultValue={[product.currentDiscount]}
-                        max={70}
-                        min={0}
-                        step={5}
-                        className="w-full"
-                      />
-                      <div className="text-xs text-muted-foreground mt-1">
-                        AI suggests: {product.currentDiscount}%
+                      {/* Discounted Price Preview */}
+                      <div>
+                        <div className="text-sm text-muted-foreground mb-1">Discounted Price Preview</div>
+                        <div className="text-2xl font-bold text-blue-600">${discountedPrice}</div>
+                        <Badge className="bg-blue-50 text-blue-700 mt-1">-{manualDiscount}%</Badge>
+                      </div>
+                      {/* Manual Discount Slider (shifted left) */}
+                      <div className="flex flex-col items-start">
+                        <div className="text-sm text-muted-foreground mb-2">Manual Discount</div>
+                        <div className="w-full" style={{ maxWidth: 160 }}>
+                          <Slider
+                            value={[manualDiscount]}
+                            onValueChange={val => handleSliderChange(val[0])}
+                            max={70}
+                            min={0}
+                            step={5}
+                            className="w-full"
+                          />
+                        </div>
+                      </div>
+                      {/* Actions with AI Suggestion above button */}
+                      <div className="flex flex-col gap-2 justify-end items-start">
+                        <div className="mb-2 text-blue-700 font-bold text-base md:text-lg" style={{ letterSpacing: '0.5px' }}>
+                          AI suggests: {aiResults[product.id]?.discount !== undefined ? `${aiResults[product.id].discount}%` : '--%'}
+                        </div>
+                        <Button 
+                          size="sm" 
+                          className="bg-blue-600 hover:bg-blue-700"
+                          disabled={aiLoading[product.id]}
+                          onClick={handleApplyDiscount}
+                        >
+                          {aiLoading[product.id] ? 'Applying...' : 'Apply Discount'}
+                        </Button>
                       </div>
                     </div>
-
-                    {/* Actions */}
-                    <div className="flex flex-col gap-2">
-                      <Button 
-                        size="sm" 
-                        className="bg-blue-600 hover:bg-blue-700"
-                        disabled={autoDiscount}
-                      >
-                        Apply Discount
-                      </Button>
-                      <Button size="sm" variant="outline">
-                        Override AI
-                      </Button>
+                    {/* AI Insights */}
+                    <div className="mt-4 bg-emerald-50 dark:bg-emerald-950 p-4 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                      <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-200 text-sm font-medium mb-2">
+                        <User className="h-4 w-4" />
+                        AI Analysis
+                      </div>
+                      <p className="text-sm text-emerald-700 dark:text-emerald-300">
+                        {product.urgency === 'critical' 
+                          ? `Critical: Increase discount to ${aiResults[product.id]?.discount ?? 60}% immediately to achieve ${aiResults[product.id]?.sellThrough ?? 95}% sell-through rate.`
+                          : product.urgency === 'high'
+                          ? `High priority: Current discount optimal for target sell-through. Monitor closely.`
+                          : product.urgency === 'medium'
+                          ? `Medium priority: Consider ${aiResults[product.id]?.discount ?? 15}% discount in next 6 hours for optimal revenue.`
+                          : `Low priority: No discount needed yet. Current sell-through rate is healthy.`
+                        }
+                      </p>
                     </div>
                   </div>
-
-                  {/* AI Insights */}
-                  <div className="mt-4 bg-emerald-50 dark:bg-emerald-950 p-4 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                    <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-200 text-sm font-medium mb-2">
-                      <User className="h-4 w-4" />
-                      AI Analysis
-                    </div>
-                    <p className="text-sm text-emerald-700 dark:text-emerald-300">
-                      {product.urgency === 'critical' 
-                        ? `Critical: Increase discount to 60% immediately to achieve 95% sell-through rate.`
-                        : product.urgency === 'high'
-                        ? `High priority: Current discount optimal for target sell-through. Monitor closely.`
-                        : product.urgency === 'medium'
-                        ? `Medium priority: Consider 15% discount in next 6 hours for optimal revenue.`
-                        : `Low priority: No discount needed yet. Current sell-through rate is healthy.`
-                      }
-                    </p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>

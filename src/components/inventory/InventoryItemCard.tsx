@@ -67,9 +67,7 @@ export const InventoryItemCard = ({ item }: InventoryItemCardProps) => {
           <div className="text-right">
             <div className="text-xl font-semibold">${item.price}</div>
             {item.suggestedDiscount > 0 && (
-              <div className="text-sm text-emerald-600">
-                -{item.suggestedDiscount}% suggested
-              </div>
+              <div className="text-sm text-blue-700 mt-1">-{item.suggestedDiscount}% OFF</div>
             )}
           </div>
         </div>
@@ -95,19 +93,12 @@ export const InventoryItemCard = ({ item }: InventoryItemCardProps) => {
 
         {/* Action Buttons */}
         <div className="flex gap-2">
-          {item.suggestedDiscount > 0 && (
-            <Button size="sm" className="flex-1 bg-blue-600 hover:bg-blue-700">
-              <CircleDollarSign className="h-4 w-4 mr-1" />
-              Discount {item.suggestedDiscount}%
-            </Button>
-          )}
-          
-          {item.urgency === 'critical' || item.urgency === 'high' ? (
+          {(item.urgency === 'critical' || item.urgency === 'high') && (
             <Button size="sm" variant="outline" className="flex-1">
               <ArrowDown className="h-4 w-4 mr-1" />
               Redistribute
             </Button>
-          ) : null}
+          )}
         </div>
 
         {/* AI Recommendations */}
