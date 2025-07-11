@@ -1,7 +1,11 @@
 import { GoogleGenAI } from "@google/genai";
 
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+if (!apiKey) {
+    console.warn("[Gemini] VITE_GEMINI_API_KEY is missing or undefined! Gemini API will not work.");
+}
 const ai = new GoogleGenAI({
-    apiKey: import.meta.env.VITE_GEMINI_API_KEY,
+    apiKey,
 });
 
 const retailSystemPrompt = `

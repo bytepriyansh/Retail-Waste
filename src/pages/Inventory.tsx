@@ -40,17 +40,12 @@ const Inventory = () => {
     if (daysUntilExpiry <= 1) urgency = "critical";
     else if (daysUntilExpiry <= 3) urgency = "high";
     else if (daysUntilExpiry <= 7) urgency = "medium";
-    // Example discount logic
-    let suggestedDiscount = 0;
-    if (urgency === "critical") suggestedDiscount = 50;
-    else if (urgency === "high") suggestedDiscount = 30;
-    else if (urgency === "medium") suggestedDiscount = 15;
-
+    // Remove default discount logic
     const product = {
       ...newProduct,
       daysUntilExpiry,
       urgency,
-      suggestedDiscount,
+      // suggestedDiscount is intentionally omitted
     };
     const res = await fetch(API_URL, {
       method: "POST",

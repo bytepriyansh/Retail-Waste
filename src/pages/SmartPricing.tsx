@@ -11,7 +11,8 @@ import {
   Bell, 
   CheckCircle,
   User,
-  Settings
+  Settings,
+  Sparkles
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, BarChart, Bar } from "recharts";
 import { generateAIResponse } from "@/lib/gemini";
@@ -75,19 +76,34 @@ const SmartPricing = () => {
     const prompt = `Suggest an optimal discount percentage and predicted sell-through rate for the following product:\n
 Name: ${product.name}\nCategory: ${product.category}\nQuantity: ${product.quantity ?? 1}\nUrgency: ${product.urgency}\nHours Left: ${product.hoursLeft}\nCurrent Price: $${product.originalPrice}\nCurrent Discount: ${product.currentDiscount}%`;
     try {
+      console.log('[AI DEBUG] handleApplyAIDiscount called for product:', product);
+      console.log('[AI DEBUG] Prompt being sent to Gemini:', prompt);
       const response = await generateAIResponse(prompt);
-      console.log('AI Response for', product.name, ':', response); // <-- Added logging
+      console.log('[AI DEBUG] Raw AI Response for', product.name, ':', response);
       // Simple extraction: look for numbers in the response
       const discountMatch = response.match(/(\d+)% discount|discount: (\d+)%/i);
       const sellThroughMatch = response.match(/(\d+)% sell[- ]?through|sell[- ]?through: (\d+)%/i);
       const discount = discountMatch ? parseInt(discountMatch[1] || discountMatch[2]) : product.currentDiscount;
       const sellThrough = sellThroughMatch ? parseInt(sellThroughMatch[1] || sellThroughMatch[2]) : product.predictedSellThrough;
-      setAiResults(prev => ({ ...prev, [product.id]: { discount, sellThrough } }));
-      setProducts(prev => prev.map(p => p.id === product.id ? { ...p, currentDiscount: discount, predictedSellThrough: sellThrough } : p));
+      console.log('[AI DEBUG] Parsed discount:', discount, 'Parsed sellThrough:', sellThrough);
+      setAiResults(prev => {
+        const updated = { ...prev, [product.id]: { discount, sellThrough } };
+        console.log('[AI DEBUG] Updated aiResults state:', updated);
+        return updated;
+      });
+      setProducts(prev => {
+        const updated = prev.map(p => p.id === product.id ? { ...p, currentDiscount: discount, predictedSellThrough: sellThrough } : p);
+        console.log('[AI DEBUG] Updated products state:', updated);
+        return updated;
+      });
     } catch (e) {
-      // fallback: do nothing
+      console.error('[AI DEBUG] Error in handleApplyAIDiscount:', e);
     } finally {
-      setAiLoading(prev => ({ ...prev, [product.id]: false }));
+      setAiLoading(prev => {
+        const updated = { ...prev, [product.id]: false };
+        console.log('[AI DEBUG] Updated aiLoading state:', updated);
+        return updated;
+      });
     }
   };
 
@@ -335,8 +351,28 @@ Name: ${product.name}\nCategory: ${product.category}\nQuantity: ${product.quanti
                       </div>
                       {/* Actions with AI Suggestion above button */}
                       <div className="flex flex-col gap-2 justify-end items-start">
-                        <div className="mb-2 text-blue-700 font-bold text-base md:text-lg" style={{ letterSpacing: '0.5px' }}>
-                          AI suggests: {aiResults[product.id]?.discount !== undefined ? `${aiResults[product.id].discount}%` : '--%'}
+                        {/* Improved AI Suggestion Button with icon and tooltip */}
+                        <div className="w-full flex flex-col items-start mb-1">
+                          <Button 
+                            size="sm" 
+                            className="bg-gradient-to-r from-emerald-500 to-blue-500 text-white font-semibold shadow-md flex items-center gap-2 px-4 py-2"
+                            onClick={() => handleApplyAIDiscount(product)}
+                            disabled={aiLoading[product.id]}
+                            style={{ minWidth: 170 }}
+                            title="Let AI analyze this product and suggest an optimal discount."
+                          >
+                            <Sparkles className="h-4 w-4 mr-1 animate-pulse" />
+                            {aiLoading[product.id] ? 'Getting AI Suggestion...' : 'Get AI Suggestion'}
+                          </Button>
+            
+                        </div>
+                        {/* Improved AI Suggestion Display */}
+                        <div className="mb-2 w-full">
+                          <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 flex items-center gap-2 shadow-sm" style={{ maxWidth: 200, justifyContent: 'center' }}>
+                            <Sparkles className="h-4 w-4 text-blue-500" />
+                            <span className="font-semibold text-blue-700">AI suggests:</span>
+                            <span className="text-lg font-bold text-blue-900">{aiResults[product.id]?.discount !== undefined ? `${aiResults[product.id].discount}%` : '--%'}</span>
+                          </div>
                         </div>
                         <Button 
                           size="sm" 
