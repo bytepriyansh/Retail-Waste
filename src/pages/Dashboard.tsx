@@ -1,4 +1,3 @@
-
 import { Navbar } from "@/components/Navbar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +14,7 @@ import {
   CheckCircle
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, AreaChart, Area } from "recharts";
+import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
   const wasteData = [
@@ -32,6 +32,8 @@ const Dashboard = () => {
     { id: 3, action: "100 meals donated to Food Bank", time: "1 hour ago", type: "donation" },
     { id: 4, action: "AI predicted demand spike for weekend", time: "2 hours ago", type: "forecast" },
   ];
+
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-background">
@@ -172,19 +174,19 @@ const Dashboard = () => {
         <div className="mt-8">
           <h2 className="text-2xl font-bold mb-6">Quick Actions</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Button className="h-20 gradient-primary text-white flex flex-col gap-2">
+            <Button className="h-20 gradient-primary text-white flex flex-col gap-2" onClick={() => navigate("/inventory")}> 
               <ChartBar className="h-6 w-6" />
               <span>View Inventory</span>
             </Button>
-            <Button variant="outline" className="h-20 flex flex-col gap-2">
+            <Button variant="outline" className="h-20 flex flex-col gap-2" onClick={() => navigate("/smart-pricing")}> 
               <CircleDollarSign className="h-6 w-6" />
               <span>Set Discounts</span>
             </Button>
-            <Button variant="outline" className="h-20 flex flex-col gap-2">
+            <Button variant="outline" className="h-20 flex flex-col gap-2" onClick={() => navigate("/redistribution")}> 
               <ArrowDown className="h-6 w-6" />
               <span>Redistribute Items</span>
             </Button>
-            <Button variant="outline" className="h-20 flex flex-col gap-2">
+            <Button variant="outline" className="h-20 flex flex-col gap-2" onClick={() => navigate("/donation")}> 
               <Users className="h-6 w-6" />
               <span>Schedule Donations</span>
             </Button>

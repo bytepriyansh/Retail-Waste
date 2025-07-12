@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,18 +7,27 @@ import {
   ArrowDown,
   CircleDollarSign
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export interface InventoryItem {
-  id: number;
+  id: string | number;
   name: string;
   category: string;
   quantity: number;
   expiryDate: string;
+  manufacturingDate: string;
   daysUntilExpiry: number;
   urgency: string;
   price: number;
   suggestedDiscount: number;
-  location: string;
+  warehouse: string;
+  shelf: string;
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+  flatNumber: string;
+  apartmentNumber: string;
 }
 
 interface InventoryItemCardProps {
@@ -27,6 +35,8 @@ interface InventoryItemCardProps {
 }
 
 export const InventoryItemCard = ({ item }: InventoryItemCardProps) => {
+  const navigate = useNavigate();
+
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
       case 'critical': return 'bg-red-100 text-red-800 border-red-200';
@@ -50,14 +60,18 @@ export const InventoryItemCard = ({ item }: InventoryItemCardProps) => {
         <div className="flex items-start justify-between">
           <div>
             <CardTitle className="text-lg">{item.name}</CardTitle>
-            <CardDescription>{item.category} • {item.location}</CardDescription>
+            <CardDescription>
+              <span className="font-semibold">ID:</span> {item.id} <br />
+              <span className="font-semibold">Category:</span> {item.category} <br />
+              <span className="font-semibold">Warehouse:</span> {item.warehouse} <br />
+              <span className="font-semibold">Shelf:</span> {item.shelf}
+            </CardDescription>
           </div>
           <Badge className={`${getUrgencyColor(item.urgency)} border`}>
             {item.urgency}
           </Badge>
         </div>
       </CardHeader>
-      
       <CardContent className="space-y-4">
         <div className="flex justify-between items-center">
           <div>
@@ -87,14 +101,18 @@ export const InventoryItemCard = ({ item }: InventoryItemCardProps) => {
           />
           
           <div className="text-xs text-muted-foreground">
-            Expiry Date: {new Date(item.expiryDate).toLocaleDateString()}
+            <span className="font-semibold">Mfg Date:</span> {item.manufacturingDate ? new Date(item.manufacturingDate).toLocaleDateString() : 'N/A'}<br />
+            <span className="font-semibold">Expiry Date:</span> {new Date(item.expiryDate).toLocaleDateString()}
           </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* Update Stock Button */}
         <div className="flex gap-2">
+          <Button size="sm" variant="outline" className="flex-1" onClick={() => alert('Update stock feature coming soon!')}>
+            Update Stock
+          </Button>
           {(item.urgency === 'critical' || item.urgency === 'high') && (
-            <Button size="sm" variant="outline" className="flex-1">
+            <Button size="sm" variant="outline" className="flex-1" onClick={() => navigate('/redistribution', { state: { selectedItem: item } })}>
               <ArrowDown className="h-4 w-4 mr-1" />
               Redistribute
             </Button>

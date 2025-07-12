@@ -82,6 +82,15 @@ export const Navbar = () => {
             >
               AI Assistant
             </Link>
+            <Link
+              to="/redistribution"
+              className={`text-sm font-bold transition-colors hover:text-primary ${isActive("/redistribution")
+                  ? "text-primary border-b-2 border-primary"
+                  : "text-muted-foreground hover:border-b-2 hover:border-muted-foreground/50"
+                } py-1`}
+            >
+              Redistribution
+            </Link>
           </nav>
 
           <div className="flex items-center space-x-4">
